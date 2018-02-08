@@ -3,7 +3,10 @@ import jsCookie from 'js-cookie'
 import cookie from 'cookie'
 import fetch from 'isomorphic-fetch'
 import store from 'store'
-import spotifyApi from '../lib/spotify-api'
+import SpotifyWebApi from 'spotify-web-api-node'
+import url from 'url'
+
+let spotifyApi
 
 const updateCredentials = ({access_token, refresh_token}) => {
   if (access_token) spotifyApi.setAccessToken(access_token)
@@ -52,13 +55,17 @@ export default class App extends Component {
   static async getInitialProps({req}) {
     let access_token, refresh_token, user
     let errors = []
-    let relURL = u => (req ? `http://${req.headers.host}${u}` : u)
+    let relURL = u => (req ? `http://${req.headers.host}${u}` : `${window.location.href}${u}`)
+    if (!spotifyApi) {
+      spotifyApi = new SpotifyWebApi(null, url.parse(relURL('/spotify')))
+    }
     if (req && req.headers.cookie) {
       // Server
       const c = cookie.parse(req.headers.cookie)
       access_token = c.access_token
       refresh_token = c.refresh_token
       updateCredentials({access_token, refresh_token})
+      user = await getUser()
       try {
         user = await getUser()
       } catch (e) {
@@ -90,6 +97,12 @@ export default class App extends Component {
     let {artists, artistInfo, user} = this.props
     const access_token = jsCookie.get('access_token')
     const refresh_token = jsCookie.get('refresh_token')
+    if (!spotifyApi) {
+      spotifyApi = new SpotifyWebApi(
+        null,
+        url.parse(window.location.href.replace(/\/$/, '') + '/spotify'),
+      )
+    }
     updateCredentials({access_token, refresh_token})
     if (artists && user) {
       artists.forEach((uid, i) =>

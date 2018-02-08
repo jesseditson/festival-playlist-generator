@@ -3,7 +3,8 @@ const {parse} = require('url')
 const next = require('next')
 const {send} = require('micro')
 const cookie = require('cookie')
-const spotifyApi = require('../lib/spotify-api')
+const spotifyApi = require('./lib/spotify-api')
+const spotifyProxy = require('./spotify-proxy')
 
 let match = require('fs-router')(__dirname + '/routes')
 
@@ -39,6 +40,8 @@ app.prepare().then(() => {
       const authorizeURL = spotifyApi.createAuthorizeURL(scopes)
       res.setHeader('Location', authorizeURL)
       return send(res, 302, 'Redirecting to Spotify...')
+    } else if (/^\/spotify/.test(pathname)) {
+      return spotifyProxy(req, res)
     }
 
     // Server Routes
