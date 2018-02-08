@@ -3,7 +3,9 @@ import jsCookie from 'js-cookie'
 import cookie from 'cookie'
 import fetch from 'isomorphic-fetch'
 import store from 'store'
-import spotifyApi from '../lib/spotify-api'
+import SpotifyWebApi from 'spotify-web-api-node'
+
+const spotifyApi = new SpotifyWebApi()
 
 const updateCredentials = ({access_token, refresh_token}) => {
   if (access_token) spotifyApi.setAccessToken(access_token)
@@ -20,6 +22,7 @@ const getUser = async fail => {
     if (fail) throw e
   }
   if (!user) {
+    // TODO: just clear cookies instead, or make server do this
     const {body} = await spotifyApi.refreshAccessToken()
     updateCredentials(body)
     return getUser(true)
@@ -47,6 +50,7 @@ export default class App extends Component {
       selectedPlaylist: null,
       availablePlaylists: [],
       loadingPlaylist: false,
+      expandedArtists: {},
     }
   }
   static async getInitialProps({req}) {
@@ -117,7 +121,8 @@ export default class App extends Component {
           o[p.id] = p
           return o
         }, {})
-        this.setState({availablePlaylists, playlistMap})
+        const selectedPlaylsit = store.get('selectedPlaylist')
+        this.setState({availablePlaylists, playlistMap, selectedPlaylsit})
       } catch (e) {
         console.error(`Error fetching playlists`, e)
       }
@@ -128,6 +133,7 @@ export default class App extends Component {
     const {user} = this.state
     this.setState({loadingPlaylist: true})
     const playlistItems = await getAllPlaylistItems(p)
+    store.set('selectedPlaylist', p)
     const artistsInPlaylist = playlistItems.reduce((o, i) => {
       i.track.artists.forEach(a => {
         o[a.id] = o[a.id] || []
@@ -146,11 +152,28 @@ export default class App extends Component {
     const tracks = body.tracks.map(i => i.uri)
     try {
       await spotifyApi.addTracksToPlaylist(selectedPlaylist.owner.id, selectedPlaylist.id, tracks)
+      this.selectPlaylist(selectedPlaylist)
     } catch (e) {
       console.error(`Error adding tracks for ${root.name}`, e)
     }
   }
-  removeFromPlaylist(a) {}
+  async removeFromPlaylist(a, root) {
+    const {selectedPlaylist, artistsInPlaylist} = this.state
+    if (!artistsInPlaylist[a.id] || artistsInPlaylist[a.id].length == 0) {
+      return
+    }
+    const tracks = artistsInPlaylist[a.id].map(({uri}) => ({uri}))
+    try {
+      await spotifyApi.removeTracksFromPlaylist(
+        selectedPlaylist.owner.id,
+        selectedPlaylist.id,
+        tracks,
+      )
+      this.selectPlaylist(selectedPlaylist)
+    } catch (e) {
+      console.error(`Error adding tracks for ${root.name}`, e)
+    }
+  }
   addAllTopTracks() {
     const {artists} = this.props
     this.setState({loadingPlaylist: true})
@@ -171,58 +194,60 @@ export default class App extends Component {
   artist(uid) {
     const {artistInfo} = this.props
     const root = store.get(uid) || {}
-    const {artistsInPlaylist, selectedPlaylist} = this.state
+    const {artistsInPlaylist, selectedPlaylist, expandedArtists} = this.state
+    const artistOption = a => {
+      const click = () =>
+        this.updateArtist(uid, ca => {
+          ca.artistId = a.id
+          return ca
+        })
+      const aTracks = artistsInPlaylist[a.id] || []
+      const img = a.images[0] && a.images[0].url
+      const styles = {
+        backgroundColor: aTracks.length ? 'steelblue' : 'white',
+      }
+      return (
+        <li key={a.id} style={styles}>
+          <h3>{a.name}</h3>
+          <p>{a.genres.join(' ')}</p>
+          {img ? (
+            <p>
+              <img width="200" src={img} />
+            </p>
+          ) : null}
+          <a target="_blank" href={a.external_urls.spotify}>
+            Open in Spotify
+          </a>
+          {selectedPlaylist ? (
+            <div>
+              <p>{aTracks.length} tracks on playlist</p>
+              {aTracks.length ? (
+                <button onClick={() => this.removeFromPlaylist(a, root)}>Remove all tracks</button>
+              ) : (
+                <button onClick={() => this.addTracksToPlaylist(a, root)}>Add top tracks</button>
+              )}
+            </div>
+          ) : null}
+        </li>
+      )
+    }
     let artistList
     if (root.artists) {
+      const defaultArtists = root.artists.filter(a => artistsInPlaylist[a.id])
       artistList = (
         <ul>
-          {root.artists.map(a => {
-            const click = () =>
-              this.updateArtist(uid, ca => {
-                ca.artistId = a.id
-                return ca
-              })
-            const aTracks = artistsInPlaylist[a.id] || []
-            const img = a.images[0] && a.images[0].url
-            const styles = {
-              backgroundColor: aTracks.length ? 'steelblue' : 'white',
-            }
-            return (
-              <li key={a.id} style={styles}>
-                <h3>{a.name}</h3>
-                <p>{a.genres.join(' ')}</p>
-                {img ? (
-                  <p>
-                    <img width="200" src={img} />
-                  </p>
-                ) : null}
-                <a href={a.external_urls.spotify}>Open in Spotify</a>
-                {selectedPlaylist ? (
-                  <div>
-                    <p>{aTracks.length} tracks on playlist</p>
-                    {aTracks.length ? (
-                      <button onClick={() => this.removeFromPlaylist(a)}>Remove all tracks</button>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          await this.addTracksToPlaylist(a, root)
-                          this.selectPlaylist(selectedPlaylist)
-                        }}
-                      >
-                        Add top tracks
-                      </button>
-                    )}
-                  </div>
-                ) : null}
-              </li>
-            )
-          })}
+          {expandedArtists[uid] ? root.artists.map(artistOption) : defaultArtists.map(artistOption)}
         </ul>
       )
     }
     return (
       <li key={uid}>
-        <h2>
+        <h2
+          onClick={() => {
+            expandedArtists[uid] = !expandedArtists[uid]
+            this.setState({expandedArtists})
+          }}
+        >
           {root.name} ({root.country})
         </h2>
         {artistList}
@@ -231,7 +256,13 @@ export default class App extends Component {
   }
   render() {
     const {errors, artists, user} = this.props
-    const {loadingPlaylist, playlistMap, availablePlaylists, selectedPlaylist} = this.state
+    const {
+      expandedArtists,
+      loadingPlaylist,
+      playlistMap,
+      availablePlaylists,
+      selectedPlaylist,
+    } = this.state
     if (!user) {
       return (
         <div>

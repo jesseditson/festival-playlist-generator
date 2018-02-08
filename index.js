@@ -3,7 +3,7 @@ const {parse} = require('url')
 const next = require('next')
 const {send} = require('micro')
 const cookie = require('cookie')
-const spotifyApi = require('../lib/spotify-api')
+const spotifyApi = require('./lib/spotify-api')
 
 let match = require('fs-router')(__dirname + '/routes')
 
