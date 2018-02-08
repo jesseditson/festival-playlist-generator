@@ -16,7 +16,7 @@ app.prepare().then(() => {
     const parsedUrl = parse(req.url, true)
     // Spotify auth
     const {query, pathname} = parsedUrl
-    if (pathname == '/' && query.code) {
+    if (pathname === '/' && query.code) {
       const grant = await spotifyApi.authorizationCodeGrant(query.code)
       const {access_token, refresh_token} = grant.body
       res.setHeader(
@@ -27,7 +27,7 @@ app.prepare().then(() => {
       )
       res.setHeader('Location', '/')
       return send(res, 302, '')
-    } else if (pathname == '/login') {
+    } else if (pathname === '/login') {
       const scopes = [
         'user-read-private',
         'user-read-email',
@@ -49,6 +49,6 @@ app.prepare().then(() => {
     return handle(req, res, parsedUrl)
   }).listen(3000, err => {
     if (err) throw err
-    console.log('> Ready on http://localhost:3000')
+    console.log('> Ready on port 3000')
   })
 })

@@ -16,6 +16,7 @@
     "fs-router": "^0.4.0",
     "isomorphic-fetch": "^2.2.1",
     "js-cookie": "^2.2.0",
+    "load-secrets": "^0.4.0",
     "micro": "^9.1.0",
     "next": "^4.2.3",
     "react": "^16.2.0",

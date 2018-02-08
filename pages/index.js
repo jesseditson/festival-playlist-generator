@@ -16,12 +16,13 @@ const getUser = async fail => {
     const res = await spotifyApi.getMe()
     user = res.body
   } catch (e) {
+    console.error(`Error fetching user:`, e)
     if (fail) throw e
   }
   if (!user) {
     const {body} = await spotifyApi.refreshAccessToken()
     updateCredentials(body)
-    return getUser()
+    return getUser(true)
   }
   return user
 }
@@ -61,6 +62,7 @@ export default class App extends Component {
       try {
         user = await getUser()
       } catch (e) {
+        console.error(`Error fetching user: ${e.message}`)
         errors.push(e.message)
       }
     }
