@@ -1,0 +1,8 @@
+{
+  "alias": ["festival-playlists.jesseditson.com"],
+  "env": {
+    "NODE_ENV": "production",
+    "CLIENT_ID": "@festival_client_id",
+    "CLIENT_SECRET": "@festival_client_secret"
+  }
+}
