@@ -3,7 +3,7 @@ const fs = require('fs')
 const path = require('path')
 
 module.exports = (req, res) => {
-  const file = path.join(__dirname, '../noise-pop.txt')
+  const file = path.join(__dirname, '../treefort.txt')
   fs.readFile(file, 'utf8', (err, string) => {
     if (err) return send(res, 500, {error: err.message})
     const artists = string
