@@ -248,7 +248,8 @@ export default class App extends Component {
             this.setState({expandedArtists})
           }}
         >
-          {root.name} ({root.country})
+          {root.name}
+          {root.country ? ` (${root.country})` : null}
         </h2>
         {artistList}
       </li>
