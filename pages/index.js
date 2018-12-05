@@ -51,6 +51,8 @@ export default class App extends Component {
       availablePlaylists: [],
       loadingPlaylist: false,
       expandedArtists: {},
+      hideAdded: false,
+      artistInfo: {}
     }
   }
   static async getInitialProps({req}) {
@@ -192,7 +194,6 @@ export default class App extends Component {
     })
   }
   artist(uid) {
-    const {artistInfo} = this.props
     const root = store.get(uid) || {}
     const {artistsInPlaylist, selectedPlaylist, expandedArtists} = this.state
     const artistOption = a => {
@@ -256,13 +257,15 @@ export default class App extends Component {
     )
   }
   render() {
-    const {errors, artists, user} = this.props
+    const {errors, artists: allArtists, user} = this.props
     const {
-      expandedArtists,
       loadingPlaylist,
       playlistMap,
       availablePlaylists,
       selectedPlaylist,
+      hideAdded,
+      artistsInPlaylist,
+      artistInfo
     } = this.state
     if (!user) {
       return (
@@ -287,6 +290,11 @@ export default class App extends Component {
         </select>
       )
     }
+    const artists = hideAdded ? allArtists.filter(a => {
+      const info = store.get(a)
+      if (!info || !info.artists) return true;
+      return !info.artists.some(a => artistsInPlaylist[a.id])
+    }) : allArtists;
     return (
       <div>
         <h4>
@@ -294,6 +302,7 @@ export default class App extends Component {
         </h4>
         {errors.length ? <span>Error: {errors.join(', ')}</span> : null}
         {plSelect}
+        <br/><a href="#" onClick={() => this.setState({hideAdded: !hideAdded})}>{hideAdded ? "Show Added" : "Hide Added"}</a>
         {artists.length && selectedPlaylist ? (
           <button onClick={() => this.addAllTopTracks()}>
             Add all top tracks from first matched artists
