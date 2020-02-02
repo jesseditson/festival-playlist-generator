@@ -31,7 +31,7 @@ const getUser = async fail => {
 }
 
 const getAllPlaylistItems = async (p, opts = {offset: 0, limit: 100}, prev = []) => {
-  const {body} = await spotifyApi.getPlaylistTracks(p.owner.id, p.id, opts)
+  const {body} = await spotifyApi.getPlaylistTracks(p.id, opts)
   opts.offset += body.items.length
   const items = prev.concat(body.items)
   if (opts.offset < body.total) {
@@ -153,7 +153,7 @@ export default class App extends Component {
     const {body} = await spotifyApi.getArtistTopTracks(a.id, 'US')
     const tracks = body.tracks.map(i => i.uri)
     try {
-      await spotifyApi.addTracksToPlaylist(selectedPlaylist.owner.id, selectedPlaylist.id, tracks)
+      await spotifyApi.addTracksToPlaylist(selectedPlaylist.id, tracks)
       this.selectPlaylist(selectedPlaylist)
     } catch (e) {
       console.error(`Error adding tracks for ${root.name}`, e)
@@ -167,31 +167,51 @@ export default class App extends Component {
     const tracks = artistsInPlaylist[a.id].map(({uri}) => ({uri}))
     try {
       await spotifyApi.removeTracksFromPlaylist(
-        selectedPlaylist.owner.id,
         selectedPlaylist.id,
         tracks,
       )
       this.selectPlaylist(selectedPlaylist)
     } catch (e) {
-      console.error(`Error adding tracks for ${root.name}`, e)
+      console.error(`Error removing tracks for ${root.name}`, e)
     }
   }
-  addAllTopTracks() {
+  async addAllTopTracks() {
+    const {artistsInPlaylist} = this.state
     const {artists} = this.props
     this.setState({loadingPlaylist: true})
-    Promise.all(
-      artists.map(async uid => {
-        const root = store.get(uid) || {}
-        const a = root.artists[0]
-        if (!a) {
-          return console.log(`Not found: ${root.name} (${root.country})`)
-        }
-        await this.addTracksToPlaylist(a, root)
-      }),
-    ).then(() => {
-      const {selectedPlaylist} = this.state
-      this.selectPlaylist(selectedPlaylist)
-    })
+    // const chunks = artists.reduce((arr, uid) => {
+    //   let lastNode = arr[arr.length - 1]
+    //   if (lastNode.length < 10) {
+    //     lastNode.push(uid)
+    //   } else {
+    //     arr.push([])
+    //     lastNode = [uid]
+    //   }
+    //   arr[arr.length - 1] = lastNode
+    //   return arr
+    // }, [[]])
+    // for (const chunk of chunks) {
+    //     await Promise.all(
+    //       chunk.map(async uid => {
+    console.log(artists)
+    for (const uid of artists) {
+      const root = store.get(uid) || {}
+      const a = root.artists[0]
+      if (!a) {
+        console.log(`Not found: ${root.name} (${root.country})`)
+        break
+      }
+      if (artistsInPlaylist[a.id] && artistsInPlaylist[a.id].length > 0) {
+        break
+      }
+      console.log(`Adding tracks for ${root.name} (${root.country})`)
+      await this.addTracksToPlaylist(a, root)
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+    //   })
+    // )
+    const {selectedPlaylist} = this.state
+    this.selectPlaylist(selectedPlaylist)
   }
   artist(uid) {
     const root = store.get(uid) || {}
